@@ -45,6 +45,7 @@ from ..data import (
     DirectedBreadthFirstNeighbours,
 )
 from ..core.utils import is_real_iterable
+import tensorflow as tf
 from . import LinkSequence, OnDemandLinkSequence
 from ..random import SeededPerBatch
 
@@ -276,30 +277,31 @@ class GraphSAGELinkGenerator(BatchedLinkGenerator):
 
         # Get sampled nodes for the subgraphs for the edges where each edge is a tuple
         # of 2 nodes, so we are extracting 2 head nodes per edge
-        batch_feats = []
-        for hns in zip(*head_links):
-            node_samples = self._samplers[batch_num].run(
-                nodes=hns, n=1, n_size=self.num_samples
-            )
+        with tf.device("/CPU:0"):
+            batch_feats = []
+            for hns in zip(*head_links):
+                node_samples = self._samplers[batch_num].run(
+                    nodes=hns, n=1, n_size=self.num_samples
+                )
 
-            nodes_per_hop = get_levels(0, 1, self.num_samples, node_samples)
+                nodes_per_hop = get_levels(0, 1, self.num_samples, node_samples)
 
-            # Get features for the sampled nodes
-            batch_feats.append(
-                [
-                    self.graph.node_features(layer_nodes, node_type)
-                    for layer_nodes in nodes_per_hop
-                ]
-            )
+                # Get features for the sampled nodes
+                batch_feats.append(
+                    [
+                        self.graph.node_features_tensors(layer_nodes, node_type)
+                        for layer_nodes in nodes_per_hop
+                    ]
+                )
 
-        # Resize features to (batch_size, n_neighbours, feature_size)
-        # and re-pack features into a list where source, target feats alternate
-        # This matches the GraphSAGE link model with (node_src, node_dst) input sockets:
-        batch_feats = [
-            np.reshape(feats, (head_size, -1, feats.shape[1]))
-            for ab in zip(*batch_feats)
-            for feats in ab
-        ]
+            # Resize features to (batch_size, n_neighbours, feature_size)
+            # and re-pack features into a list where source, target feats alternate
+            # This matches the GraphSAGE link model with (node_src, node_dst) input sockets:
+            batch_feats = [
+                tf.reshape(feats, (head_size, -1, feats.shape[1]))
+                for ab in zip(*batch_feats)
+                for feats in ab
+            ]
         return batch_feats
 
 
@@ -384,13 +386,17 @@ class HinSAGELinkGenerator(BatchedLinkGenerator):
         # Note the if there are no samples for a node a zero array is returned.
         # Resize features to (batch_size, n_neighbours, feature_size)
         # for each node type (note that we can have different feature size for each node type)
-        batch_feats = [
-            self.graph.node_features(layer_nodes, nt)
-            for nt, layer_nodes in node_samples
-        ]
+        with tf.device("/CPU:0"):
 
-        # Resize features to (batch_size, n_neighbours, feature_size)
-        batch_feats = [np.reshape(a, (head_size, -1, a.shape[1])) for a in batch_feats]
+            batch_feats = [
+                self.graph.node_features_tensors(layer_nodes, nt)
+                for nt, layer_nodes in node_samples
+            ]
+
+            # Resize features to (batch_size, n_neighbours, feature_size)
+            batch_feats = [
+                tf.reshape(a, (head_size, -1, a.shape[1])) for a in batch_feats
+            ]
 
         return batch_feats
 
@@ -494,7 +500,7 @@ class Attri2VecLinkGenerator(BatchedLinkGenerator):
 
         target_ids = [head_link[0] for head_link in head_links]
         context_ids = [head_link[1] for head_link in head_links]
-        target_feats = self.graph.node_features(target_ids)
+        target_feats = self.graph.node_features_tensors(target_ids)
         context_feats = self.graph._get_index_for_nodes(context_ids)
         batch_feats = [target_feats, np.array(context_feats)]
 
@@ -590,16 +596,18 @@ class DirectedGraphSAGELinkGenerator(BatchedLinkGenerator):
             max_hops = len(self.in_samples)
             max_slots = 2 ** (max_hops + 1) - 1
             features = [None] * max_slots  # flattened binary tree
+            with tf.device("/CPU:0"):
+                for slot in range(max_slots):
+                    nodes_in_slot = [
+                        element for sample in node_samples for element in sample[slot]
+                    ]
+                    features_for_slot = self.graph.node_features_tensors(
+                        nodes_in_slot, node_type
+                    )
 
-            for slot in range(max_slots):
-                nodes_in_slot = [
-                    element for sample in node_samples for element in sample[slot]
-                ]
-                features_for_slot = self.graph.node_features(nodes_in_slot, node_type)
-
-                features[slot] = np.reshape(
-                    features_for_slot, (len(hns), -1, features_for_slot.shape[1])
-                )
+                    features[slot] = tf.reshape(
+                        features_for_slot, (len(hns), -1, features_for_slot.shape[1])
+                    )
 
             # Get features for the sampled nodes
             batch_feats.append(features)

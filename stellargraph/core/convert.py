@@ -21,6 +21,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
+import tensorflow as tf
 
 from ..globalvar import SOURCE, TARGET, WEIGHT
 from .element_data import NodeData, EdgeData
@@ -88,7 +89,8 @@ class ColumnarConverter:
         )
 
         if self.allow_features:
-            features = other.to_numpy(dtype=self.dtype)
+            with tf.device("/CPU:0"):
+                features = tf.constant(other.to_numpy(dtype=self.dtype))
         elif len(other.columns) == 0:
             features = None
         else:

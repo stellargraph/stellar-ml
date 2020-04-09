@@ -626,7 +626,7 @@ class Test_HinSAGELinkGenerator(object):
         assert pytest.approx([1, 1, 2, 2, 4, 4, 4, 4]) == [x.shape[1] for x in ne]
 
         # With two isolates, all features are zero
-        assert all(pytest.approx(0) == x for x in ne[2:])
+        assert all(pytest.approx(0) == x.numpy() for x in ne[2:])
 
 
 class Test_Attri2VecLinkGenerator:

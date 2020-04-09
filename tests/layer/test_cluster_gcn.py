@@ -102,15 +102,19 @@ def test_ClusterGCN_apply():
     generator = ClusterNodeGenerator(G)
 
     cluster_gcn_model = ClusterGCN(
-        layer_sizes=[2], generator=generator, activations=["relu"], dropout=0.0
+        layer_sizes=[1], generator=generator, activations=["relu"], dropout=0.0
     )
 
     x_in, x_out = cluster_gcn_model.in_out_tensors()
     model = keras.Model(inputs=x_in, outputs=x_out)
 
     # Check fit method
+    model.compile(optimizer="adam", loss="binary_crossentropy")
+    gen = generator.flow(["a", "b", "c"], targets=[1, 1, 1])
+    history = model.fit(gen)
+
     preds_2 = model.predict(generator.flow(["a", "b", "c"]))
-    assert preds_2.shape == (1, 3, 2)
+    assert preds_2.shape == (1, 3, 1)
 
 
 def test_ClusterGCN_activations():

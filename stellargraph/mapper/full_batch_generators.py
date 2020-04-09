@@ -117,7 +117,7 @@ class FullBatchGenerator(ABC):
             self.use_sparse = sparse
 
         # Get the features for the nodes
-        self.features = G.node_features(self.node_list)
+        self.features = G.node_features_tensors(self.node_list)
 
         if transform is not None:
             if callable(transform):
@@ -420,7 +420,7 @@ class RelationalFullBatchNodeGenerator:
         # extract node, feature, and edge type info from G
         self.node_list = list(G.nodes())
 
-        self.features = G.node_features(self.node_list)
+        self.features = G.node_features_tensors(self.node_list)
 
         edge_types = sorted(set(e[-1] for e in G.edges(include_edge_type=True)))
         self.node_index = dict(zip(self.node_list, range(len(self.node_list))))
@@ -463,9 +463,6 @@ class RelationalFullBatchNodeGenerator:
 
             A = A.tocoo()
             self.As.append(A)
-
-        # Get the features for the nodes
-        self.features = G.node_features(self.node_list)
 
     def flow(self, node_ids, targets=None):
         """

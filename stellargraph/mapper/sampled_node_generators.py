@@ -37,6 +37,7 @@ import scipy.sparse as sps
 from tensorflow.keras import backend as K
 from functools import reduce
 from tensorflow.keras.utils import Sequence
+import tensorflow as tf
 
 from ..data import (
     SampledBreadthFirstWalk,
@@ -258,17 +259,17 @@ class GraphSAGENodeGenerator(BatchedNodeGenerator):
         nodes_per_hop = get_levels(0, 1, self.num_samples, node_samples)
         node_type = self.head_node_types[0]
 
-        # Get features for sampled nodes
-        batch_feats = [
-            self.graph.node_features(layer_nodes, node_type)
-            for layer_nodes in nodes_per_hop
-        ]
+        with tf.device("/CPU:0"):
+            # Get features for sampled nodes
+            batch_feats = [
+                self.graph.node_features_tensors(layer_nodes, node_type)
+                for layer_nodes in nodes_per_hop
+            ]
 
-        # Resize features to (batch_size, n_neighbours, feature_size)
-        batch_feats = [
-            np.reshape(a, (len(head_nodes), -1 if np.size(a) > 0 else 0, a.shape[1]))
-            for a in batch_feats
-        ]
+            # Resize features to (batch_size, n_neighbours, feature_size)
+            batch_feats = [
+                tf.reshape(a, (len(head_nodes), -1, a.shape[1])) for a in batch_feats
+            ]
         return batch_feats
 
 
@@ -356,13 +357,17 @@ class DirectedGraphSAGENodeGenerator(BatchedNodeGenerator):
         max_slots = 2 ** (max_hops + 1) - 1
         features = [None] * max_slots  # flattened binary tree
 
-        for slot in range(max_slots):
-            nodes_in_slot = list(it.chain(*[sample[slot] for sample in node_samples]))
-            features_for_slot = self.graph.node_features(nodes_in_slot, node_type)
-            resize = -1 if np.size(features_for_slot) > 0 else 0
-            features[slot] = np.reshape(
-                features_for_slot, (len(head_nodes), resize, features_for_slot.shape[1])
-            )
+        with tf.device("/CPU:0"):
+            for slot in range(max_slots):
+                nodes_in_slot = list(
+                    it.chain(*[sample[slot] for sample in node_samples])
+                )
+                features_for_slot = self.graph.node_features_tensors(
+                    nodes_in_slot, node_type
+                )
+                features[slot] = tf.reshape(
+                    features_for_slot, (len(head_nodes), -1, features_for_slot.shape[1])
+                )
 
         return features
 
@@ -467,17 +472,17 @@ class HinSAGENodeGenerator(BatchedNodeGenerator):
             for nt, indices in self._sampling_schema[0]
         ]
 
-        # Get features
-        batch_feats = [
-            self.graph.node_features(layer_nodes, nt)
-            for nt, layer_nodes in nodes_by_type
-        ]
+        with tf.device("/CPU:0"):
+            # Get features
+            batch_feats = [
+                self.graph.node_features_tensors(layer_nodes, nt)
+                for nt, layer_nodes in nodes_by_type
+            ]
 
-        # Resize features to (batch_size, n_neighbours, feature_size)
-        batch_feats = [
-            np.reshape(a, (len(head_nodes), -1 if np.size(a) > 0 else 0, a.shape[1]))
-            for a in batch_feats
-        ]
+            # Resize features to (batch_size, n_neighbours, feature_size)
+            batch_feats = [
+                tf.reshape(a, (len(head_nodes), -1, a.shape[1])) for a in batch_feats
+            ]
 
         return batch_feats
 
@@ -525,7 +530,7 @@ class Attri2VecNodeGenerator(BatchedNodeGenerator):
             head node.
         """
 
-        batch_feats = self.graph.node_features(head_nodes)
+        batch_feats = self.graph.node_features_tensors(head_nodes)
         return batch_feats
 
     def flow(self, node_ids):

@@ -328,8 +328,8 @@ def test_nodemapper_isolated_nodes():
 
     # Isolated nodes have the "dummy node" as neighbours
     # Currently, the dummy node has zeros for features – this could change
-    assert pytest.approx(nf[1][1]) == 0
-    assert pytest.approx(nf[2][2:]) == 0
+    assert pytest.approx(nf[1].numpy()[1]) == 0
+    assert pytest.approx(nf[2].numpy()[2:]) == 0
 
 
 def test_nodemapper_incorrect_targets():
@@ -729,7 +729,7 @@ class Test_FullBatchNodeGenerator:
 
         else:
             [X, tind, A], y = gen[0]
-            A_dense = A[0]
+            A_dense = A[0].numpy()
 
         assert np.allclose(X, gen.features)  # X should be equal to gen.features
         assert tind.shape[1] == len(node_ids)

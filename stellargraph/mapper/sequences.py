@@ -45,6 +45,7 @@ from ..core.utils import is_real_iterable, normalize_adj
 from ..random import random_state
 from scipy import sparse
 from ..core.experimental import experimental
+import tensorflow as tf
 
 
 class NodeSequence(Sequence):
@@ -335,7 +336,7 @@ class OnDemandLinkSequence(Sequence):
             self._batches = self._create_batches()
 
 
-def _full_batch_array_and_reshape(array, propagate_none=False):
+def _full_batch_tensor_and_reshape(x, propagate_none=False):
     """
     Args:
         array: an array-like object
@@ -344,11 +345,15 @@ def _full_batch_array_and_reshape(array, propagate_none=False):
         array as a numpy array with an extra first dimension (batch dimension) equal to 1
     """
     # if it's ok, just short-circuit on None (e.g. for target arrays, that may or may not exist)
-    if propagate_none and array is None:
+    if propagate_none and x is None:
         return None
 
-    as_np = np.asanyarray(array)
-    return np.reshape(as_np, (1,) + as_np.shape)
+    with tf.device("/CPU:0"):
+        if not isinstance(x, tf.Tensor):
+            x = tf.constant(x)
+
+        x = tf.expand_dims(x, axis=0)
+    return x
 
 
 class FullBatchSequence(Sequence):
@@ -381,26 +386,25 @@ class FullBatchSequence(Sequence):
                 "When passed together targets and indices should be the same length."
             )
 
-        # Store features and targets as np.ndarray
-        self.features = np.asanyarray(features)
-        self.target_indices = np.asanyarray(indices)
+        # Store features as is and targets as tensors
+        self.features = _full_batch_tensor_and_reshape(features)
+        self.target_indices = _full_batch_tensor_and_reshape(indices)
 
         # Convert sparse matrix to dense:
         if sps.issparse(A) and hasattr(A, "toarray"):
-            self.A_dense = _full_batch_array_and_reshape(A.toarray())
+            self.A_dense = _full_batch_tensor_and_reshape(A.toarray())
         elif isinstance(A, (np.ndarray, np.matrix)):
-            self.A_dense = _full_batch_array_and_reshape(A)
+            self.A_dense = _full_batch_tensor_and_reshape(A)
         else:
             raise TypeError(
                 "Expected input matrix to be either a Scipy sparse matrix or a Numpy array."
             )
 
         # Reshape all inputs to have batch dimension of 1
-        self.features = _full_batch_array_and_reshape(features)
-        self.target_indices = _full_batch_array_and_reshape(indices)
+        self.target_indices = _full_batch_tensor_and_reshape(indices)
         self.inputs = [self.features, self.target_indices, self.A_dense]
 
-        self.targets = _full_batch_array_and_reshape(targets, propagate_none=True)
+        self.targets = _full_batch_tensor_and_reshape(targets, propagate_none=True)
 
     def __len__(self):
         return 1
@@ -451,14 +455,13 @@ class SparseFullBatchSequence(Sequence):
             raise ValueError("Adjacency matrix not in expected sparse format")
 
         # Convert matrices to list of indices & values
-        self.A_indices = np.expand_dims(
-            np.hstack((A.row[:, None], A.col[:, None])), 0
-        ).astype("int64")
-        self.A_values = np.expand_dims(A.data, 0)
+        A_indices = np.hstack((A.row[:, None], A.col[:, None])).astype("int64")
+        self.A_indices = _full_batch_tensor_and_reshape(A_indices)
+        self.A_values = _full_batch_tensor_and_reshape(A.data)
 
         # Reshape all inputs to have batch dimension of 1
-        self.target_indices = _full_batch_array_and_reshape(indices)
-        self.features = _full_batch_array_and_reshape(features)
+        self.target_indices = _full_batch_tensor_and_reshape(indices)
+        self.features = _full_batch_tensor_and_reshape(features)
         self.inputs = [
             self.features,
             self.target_indices,
@@ -466,7 +469,7 @@ class SparseFullBatchSequence(Sequence):
             self.A_values,
         ]
 
-        self.targets = _full_batch_array_and_reshape(targets, propagate_none=True)
+        self.targets = _full_batch_tensor_and_reshape(targets, propagate_none=True)
 
     def __len__(self):
         return 1
@@ -511,20 +514,22 @@ class RelationalFullBatchNodeSequence(Sequence):
         # Convert all adj matrices to dense and reshape to have batch dimension of 1
         if self.use_sparse:
             self.A_indices = [
-                np.expand_dims(np.hstack((A.row[:, None], A.col[:, None])), 0)
+                _full_batch_tensor_and_reshape(
+                    np.hstack((A.row[:, None], A.col[:, None]))
+                )
                 for A in As
             ]
-            self.A_values = [np.expand_dims(A.data, 0) for A in As]
+            self.A_values = [_full_batch_tensor_and_reshape(A.data) for A in As]
             self.As = self.A_indices + self.A_values
         else:
-            self.As = [np.expand_dims(A.todense(), 0) for A in As]
+            self.As = [_full_batch_tensor_and_reshape(A.todense()) for A in As]
 
         # Make sure all inputs are numpy arrays, and have batch dimension of 1
-        self.target_indices = _full_batch_array_and_reshape(indices)
-        self.features = _full_batch_array_and_reshape(features)
+        self.target_indices = _full_batch_tensor_and_reshape(indices)
+        self.features = _full_batch_tensor_and_reshape(features)
         self.inputs = [self.features, self.target_indices] + self.As
 
-        self.targets = _full_batch_array_and_reshape(targets, propagate_none=True)
+        self.targets = _full_batch_tensor_and_reshape(targets, propagate_none=True)
 
     def __len__(self):
         return 1
@@ -601,14 +606,15 @@ class GraphSequence(Sequence):
             graph_targets = self.targets[batch_start:batch_end]
 
         # pad adjacency and feature matrices to equal the size of those from the largest graph
-        features = [
-            np.pad(
-                graph.node_features(graph.nodes()),
-                pad_width=((0, max_nodes - graph.number_of_nodes()), (0, 0)),
-            )
-            for graph in graphs
-        ]
-        features = np.stack(features)
+        with tf.device("/CPU:0"):
+            features = [
+                tf.pad(
+                    graph.node_features_tensors(graph.nodes()),
+                    ((0, max_nodes - graph.number_of_nodes()), (0, 0)),
+                )
+                for graph in graphs
+            ]
+            features = tf.stack(features)
 
         for adj in adj_graphs:
             adj.resize((max_nodes, max_nodes))
@@ -656,16 +662,18 @@ class CorruptedNodeSequence(Sequence):
         self.base_generator = base_generator
 
         if isinstance(base_generator, (FullBatchSequence, SparseFullBatchSequence)):
-            self.targets = np.tile(
-                [1.0, 0.0], reps=(1, len(base_generator.target_indices), 1),
-            )
+            batch_reps = (1, base_generator.target_indices.shape[1], 1)
+            target = tf.constant([[[1.0, 0.0]]], dtype=tf.float32)
         elif isinstance(base_generator, NodeSequence):
-            self.targets = np.tile([1.0, 0.0], reps=(base_generator.batch_size, 1))
+            batch_reps = (base_generator.batch_size, 1)
+            target = tf.constant([[1.0, 0.0]], dtype=tf.float32)
         else:
             raise TypeError(
                 f"base_generator: expected FullBatchSequence, SparseFullBatchSequence, "
                 f"or NodeSequence, found {type(base_generator).__name__}"
             )
+        with tf.device("/CPU:0"):
+            self.targets = tf.tile(target, batch_reps)
 
     def __len__(self):
         return len(self.base_generator)
@@ -674,31 +682,38 @@ class CorruptedNodeSequence(Sequence):
 
         inputs, _ = self.base_generator[index]
 
-        if isinstance(
-            self.base_generator, (FullBatchSequence, SparseFullBatchSequence)
-        ):
+        with tf.device("/CPU:0"):
 
-            features = inputs[0]
-            shuffled_idxs = np.random.permutation(features.shape[1])
-            shuffled_feats = [features[:, shuffled_idxs, :]]
-            targets = self.targets
+            if isinstance(
+                self.base_generator, (FullBatchSequence, SparseFullBatchSequence)
+            ):
+                features = inputs[0]
 
-        else:
+                swap_batch = [1, 0, 2]
+                nodes_first = tf.transpose(features, swap_batch)
+                shuffled_nodes_first = tf.random.shuffle(nodes_first)
+                shuffled_feats = [tf.transpose(shuffled_nodes_first, swap_batch)]
+                targets = self.targets
 
-            features = inputs
-            feature_dim = features[0].shape[-1]
-            head_nodes = features[0].shape[0]
+            else:
 
-            shuffled_feats = np.concatenate(
-                [x.reshape(-1, feature_dim) for x in features], axis=0,
-            )
+                features = inputs
+                feature_dim = tf.shape(features[0])[2]
+                head_nodes = tf.shape(features[0])[0]
 
-            np.random.shuffle(shuffled_feats)
-            shuffled_feats = shuffled_feats.reshape((head_nodes, -1, feature_dim))
-            shuffled_feats = np.split(
-                shuffled_feats, np.cumsum([y.shape[1] for y in features])[:-1], axis=1
-            )
+                stacked_feats = np.concatenate(
+                    [tf.reshape(x, (-1, feature_dim)) for x in features], axis=0,
+                )
 
-            targets = self.targets[:head_nodes, :]
+                shuffled_feats = tf.random.shuffle(stacked_feats)
+                shuffled_feats = tf.reshape(
+                    shuffled_feats, (head_nodes, -1, feature_dim)
+                )
+                size_of_splits = [tf.shape(x)[1] for x in features]
+                shuffled_feats = list(tf.split(shuffled_feats, size_of_splits, axis=1))
+
+                targets = tf.squeeze(
+                    tf.gather(self.targets, indices=[tf.range(head_nodes)]), axis=0
+                )
 
         return shuffled_feats + inputs, targets

@@ -26,6 +26,8 @@ import pandas as pd
 import numpy as np
 import scipy.sparse as sps
 import warnings
+import tensorflow as tf
+from tensorflow.python.framework.errors_impl import InvalidArgumentError
 
 from .. import globalvar
 from .schema import GraphSchema, EdgeType
@@ -722,7 +724,7 @@ class StellarGraph:
 
         # TODO: check the feature node_ids against the graph node ids?
 
-    def node_features(self, nodes, node_type=None):
+    def node_features(self, nodes, node_type=None) -> np.ndarray:
         """
         Get the numeric feature vectors for the specified node or nodes.
         If the node type is not specified the node types will be found
@@ -735,6 +737,31 @@ class StellarGraph:
 
         Returns:
             Numpy array containing the node features for the requested nodes.
+        """
+        feature_tensor = self.node_features_tensors(nodes, node_type)
+
+        if tf.executing_eagerly():
+            return feature_tensor.numpy()
+
+        with tf.compat.v1.Session() as sess:
+            try:
+                return sess.run(feature_tensor)
+            except InvalidArgumentError:
+                raise ValueError("unknown IDs")
+
+    def node_features_tensors(self, nodes, node_type=None) -> tf.Tensor:
+        """
+        Get the numeric feature vectors for the specified node or nodes.
+        If the node type is not specified the node types will be found
+        for all nodes. It is therefore important to supply the ``node_type``
+        for this method to be fast.
+
+        Args:
+            nodes (list or hashable): Node ID or list of node IDs
+            node_type (hashable): the type of the nodes.
+
+        Returns:
+            tensorflow Tensor containing the node features for the requested nodes.
         """
         nodes = np.asarray(nodes)
 
@@ -770,9 +797,12 @@ class StellarGraph:
         non_nones = nodes != None
         self._nodes.ids.require_valid(nodes[non_nones], node_ilocs[non_nones])
 
-        sampled = self._nodes.features(node_type, valid_ilocs)
-        features = np.zeros((len(nodes), sampled.shape[1]))
-        features[valid] = sampled
+        with tf.device("/CPU:0"):
+            sampled = self._nodes.features(node_type, valid_ilocs)
+
+            indices = tf.cast(tf.where(valid), tf.int32)
+            shape = (len(nodes), sampled.shape[1])
+            features = tf.scatter_nd(indices, sampled, shape)
 
         return features
 
@@ -1069,14 +1099,13 @@ class StellarGraph:
 
         node_ilocs = self._nodes.ids.to_iloc(nodes, strict=True)
         node_types = self._nodes.type_of_iloc(node_ilocs)
-        node_type_to_ilocs = pd.Series(node_ilocs, index=node_types).groupby(level=0)
+        node_type_to_ids = pd.Series(nodes, index=node_types).groupby(level=0)
 
         node_frames = {
             type_name: pd.DataFrame(
-                self._nodes.features(type_name, ilocs),
-                index=self._nodes.ids.from_iloc(ilocs),
+                self.node_features(type_node_ids, type_name), index=type_node_ids,
             )
-            for type_name, ilocs in node_type_to_ilocs
+            for type_name, type_node_ids in node_type_to_ids
         }
 
         # FIXME(#985): this is O(edges in graph) but could potentially be optimised to O(edges in

@@ -32,6 +32,7 @@ import random
 import pytest
 import pandas as pd
 import scipy.sparse as sps
+import tensorflow as tf
 
 from ..test_utils.graphs import (
     create_graph_features,
@@ -107,7 +108,7 @@ class Test_FullBatchNodeGenerator:
 
         else:
             [X, tind, A], y = gen[0]
-            A_dense = A[0]
+            A_dense = A[0].numpy()
 
         assert np.allclose(X, gen.features)  # X should be equal to gen.features
         assert tind.shape[1] == len(node_ids)
@@ -338,10 +339,10 @@ class Test_FullBatchLinkGenerator:
 
         else:
             [X, tind, A], y = gen[0]
-            A_dense = A[0]
+            A_dense = A[0].numpy()
 
         assert np.allclose(X, gen.features)  # X should be equal to gen.features
-        assert isinstance(tind, np.ndarray)
+        assert isinstance(tind.numpy(), np.ndarray)
         assert tind.ndim == 3
         assert tind.shape[1] == len(link_ids)
         assert tind.shape[2] == 2
@@ -361,21 +362,21 @@ class Test_FullBatchLinkGenerator:
         _, tind, y = self.generator_flow(
             self.G, link_ids, None, sparse=False, method="none"
         )
-        assert np.allclose(tind.reshape((3, 2)), link_ids)
+        assert np.allclose(tind.numpy().reshape((3, 2)), link_ids)
         _, tind, y = self.generator_flow(
             self.G, link_ids, None, sparse=True, method="none"
         )
-        assert np.allclose(tind.reshape((3, 2)), link_ids)
+        assert np.allclose(tind.numpy().reshape((3, 2)), link_ids)
 
     def test_generator_flow_withtargets(self):
         link_ids = list(self.G.edges())[:3]
         link_targets = np.ones((len(link_ids), self.target_dim)) * np.arange(3)[:, None]
         _, tind, y = self.generator_flow(self.G, link_ids, link_targets, sparse=True)
-        assert np.allclose(tind.reshape((3, 2)), link_ids)
+        assert np.allclose(tind.numpy().reshape((3, 2)), link_ids)
         assert np.allclose(y, link_targets[:3])
 
         _, tind, y = self.generator_flow(self.G, link_ids, link_targets, sparse=False)
-        assert np.allclose(tind.reshape((3, 2)), link_ids)
+        assert np.allclose(tind.numpy().reshape((3, 2)), link_ids)
         assert np.allclose(y, link_targets[:3])
 
     def test_generator_flow_targets_as_list(self):

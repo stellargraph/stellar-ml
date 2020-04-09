@@ -355,7 +355,7 @@ class ClusterGCN:
             and `x_out` is a tensor for the Cluster-GCN model output.
         """
         # Placeholder for node features
-        N_feat = self.generator.features.shape[1]
+        N_feat = self.generator.feature_size
 
         # Inputs for features & target indices
         x_t = Input(batch_shape=(1, None, N_feat))

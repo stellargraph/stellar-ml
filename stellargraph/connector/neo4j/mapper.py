@@ -22,6 +22,7 @@ __all__ = [
 import warnings
 import numpy as np
 import itertools as it
+import tensorflow as tf
 
 from .sampler import (
     Neo4JDirectedBreadthFirstNeighbors,
@@ -144,17 +145,17 @@ class Neo4JGraphSAGENodeGenerator(Neo4JBatchedNodeGenerator):
         )
         node_type = self.head_node_types[0]
 
-        # Get features for sampled nodes
-        batch_feats = [
-            self.graph.node_features(layer_nodes, node_type)
-            for layer_nodes in nodes_per_hop
-        ]
+        with tf.device("/CPU:0"):
+            # Get features for sampled nodes
+            batch_feats = [
+                self.graph.node_features_tensors(layer_nodes, node_type)
+                for layer_nodes in nodes_per_hop
+            ]
 
-        # Resize features for sampled nodes
-        batch_feats = [
-            np.reshape(a, (len(head_nodes), -1 if np.size(a) > 0 else 0, a.shape[1]))
-            for a in batch_feats
-        ]
+            # Resize features for sampled nodes
+            batch_feats = [
+                tf.reshape(a, (len(head_nodes), -1, a.shape[1])) for a in batch_feats
+            ]
         return batch_feats
 
 
@@ -258,10 +259,11 @@ class Neo4JDirectedGraphSAGENodeGenerator(Neo4JBatchedNodeGenerator):
 
         for slot in range(max_slots):
             nodes_in_slot = node_samples[slot]
-            features_for_slot = self.graph.node_features(nodes_in_slot, node_type)
-            resize = -1 if np.size(features_for_slot) > 0 else 0
-            features[slot] = np.reshape(
-                features_for_slot, (len(head_nodes), resize, features_for_slot.shape[1])
+            features_for_slot = self.graph.node_features_tensors(
+                nodes_in_slot, node_type
+            )
+            features[slot] = tf.reshape(
+                features_for_slot, (len(head_nodes), -1, features_for_slot.shape[1])
             )
 
         return features
