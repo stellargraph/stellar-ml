@@ -298,8 +298,7 @@ def test_APPNP_apply_propagate_model_sparse():
 
 
 @pytest.mark.parametrize(
-    "sparse",
-    [False, pytest.param(True, marks=pytest.mark.xfail(reason="FIXME #1251"))],
+    "sparse", [False, True],
 )
 def test_APPNP_save_load(tmpdir, sparse):
     G, _ = create_graph_features()

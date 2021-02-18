@@ -319,9 +319,7 @@ def test_kernel_and_bias_defaults():
             assert layer.bias_constraint is None
 
 
-@pytest.mark.parametrize(
-    "sparse", [False, pytest.param(True, marks=pytest.mark.xfail(reason="FIXME #1251"))]
-)
+@pytest.mark.parametrize("sparse", [False, True])
 def test_gcn_save_load(tmpdir, sparse):
     G, _ = create_graph_features()
     generator = FullBatchNodeGenerator(G, sparse=sparse)
