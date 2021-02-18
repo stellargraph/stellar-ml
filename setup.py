@@ -20,11 +20,24 @@ import os
 DESCRIPTION = "Python library for machine learning on graphs"
 URL = "https://github.com/stellargraph/stellargraph"
 
+uname = os.uname()
+on_m1 = uname.sysname == "Darwin" and uname.machine == "arm64"
+
 # Required packages
-# full tensorflow is too big for readthedocs's builder
-tensorflow = "tensorflow-cpu" if "READTHEDOCS" in os.environ else "tensorflow"
+if "READTHEDOCS" in os.environ:
+    # full tensorflow is too big for readthedocs's builder
+    tensorflow = "tensorflow-cpu>=2.1"
+elif on_m1:
+    # tensorflow doesn't run directly on Apple M1 chips, and instead
+    # the https://github.com/apple/tensorflow_macos preview needs to
+    # be (manually) installed. It provides an (unversioned) package
+    # called 'tensorflow-macos'.
+    tensorflow = "tensorflow-macos"
+else:
+    tensorflow = "tensorflow>=2.1"
+
 REQUIRES = [
-    f"{tensorflow}>=2.1.0",
+    tensorflow,
     "numpy>=1.14",
     "scipy>=1.1.0",
     "networkx>=2.2",
