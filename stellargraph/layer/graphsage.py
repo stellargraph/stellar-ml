@@ -36,6 +36,7 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Lambda, Dropout, Reshape, LeakyReLU
 from tensorflow.keras.utils import Sequence
 from tensorflow.keras import activations, initializers, constraints, regularizers
+from tensorflow import add_n
 from typing import List, Tuple, Callable, AnyStr, Union
 from ..mapper import (
     GraphSAGENodeGenerator,
@@ -147,15 +148,11 @@ class GraphSAGEAggregator(Layer):
                 "There must be at least one input with a non-zero neighbourhood dimension"
             )
 
-        # Calculate the dimensionality of each group, and put remainder into the first group
-        # with non-zero dimensions, which should be the head node group.
-        group_output_dim = self.output_dim // num_groups
-        remainder_dim = self.output_dim - num_groups * group_output_dim
+        # Store dimensions for the weights
         weight_dims = []
         for g in self.included_weight_groups:
             if g:
-                group_dim = group_output_dim + remainder_dim
-                remainder_dim = 0
+                group_dim = self.output_dim
             else:
                 group_dim = 0
             weight_dims.append(group_dim)
@@ -262,9 +259,8 @@ class GraphSAGEAggregator(Layer):
                 x_agg = self.group_aggregate(x, group_idx=ii)
                 sources.append(x_agg)
 
-        # Concatenate outputs from all groups
-        # TODO: Generalize to sum a subset of groups.
-        h_out = K.concatenate(sources, axis=2)
+        # Sum outputs from all groups
+        h_out = add_n(sources)
 
         # Optionally add bias
         if self.has_bias:

@@ -67,13 +67,13 @@ def test_mean_agg_apply():
     inp2 = keras.Input(shape=(1, 2, 2))
     out = agg([inp1, inp2])
 
-    assert agg.weight_dims == [3, 2]
+    assert agg.weight_dims == [5, 5]
 
     model = keras.Model(inputs=[inp1, inp2], outputs=out)
     x1 = np.array([[[1, 1]]])
     x2 = np.array([[[[2, 2], [3, 3]]]])
     actual = model.predict([x1, x2])
-    expected = np.array([[[2, 2, 2, 5, 5]]])
+    expected = np.array([[[7, 7, 7, 7, 7]]])
     assert expected == pytest.approx(actual)
 
 
@@ -84,7 +84,7 @@ def test_mean_agg_apply_groups():
     inp3 = keras.Input(shape=(1, 2, 2))
     out = agg([inp1, inp2, inp3])
 
-    assert agg.weight_dims == [5, 3, 3]
+    assert agg.weight_dims == [11, 11, 11]
 
     model = keras.Model(inputs=[inp1, inp2, inp3], outputs=out)
     x1 = np.array([[[1, 1]]])
@@ -94,7 +94,7 @@ def test_mean_agg_apply_groups():
     actual = model.predict([x1, x2, x3])
     print(actual)
 
-    expected = np.array([[[2] * 5 + [5] * 3 + [9] * 3]])
+    expected = np.array([[[16] * 11]])
     assert expected == pytest.approx(actual)
 
 
@@ -155,7 +155,7 @@ def test_maxpool_agg_apply_hidden_bias():
     out = agg([inp1, inp2])
 
     # Check sizes
-    assert agg.weight_dims == [1, 1]
+    assert agg.weight_dims == [2, 2]
 
     # Numerical test values
     x1 = np.array([[[1, 1]]])
@@ -167,7 +167,7 @@ def test_maxpool_agg_apply_hidden_bias():
     # from_neigh = K.dot(neigh_agg, ones) = [[14]]
     model = keras.Model(inputs=[inp1, inp2], outputs=out)
     actual = model.predict([x1, x2])
-    expected = np.array([[[2, 14]]])
+    expected = np.array([[[16, 16]]])
 
     assert expected == pytest.approx(actual)
 
@@ -185,7 +185,7 @@ def test_maxpool_agg_apply_no_bias():
     out = agg([inp1, inp2])
 
     # Check sizes
-    assert agg.weight_dims == [1, 1]
+    assert agg.weight_dims == [2, 2]
 
     # Numerical test values
     x1 = np.array([[[1, 1]]])
@@ -197,7 +197,7 @@ def test_maxpool_agg_apply_no_bias():
     # from_neigh = K.dot(neigh_agg, ones) = [[12]]
     model = keras.Model(inputs=[inp1, inp2], outputs=out)
     actual = model.predict([x1, x2])
-    expected = np.array([[[2, 12]]])
+    expected = np.array([[[14, 14]]])
 
     assert expected == pytest.approx(actual)
 
@@ -260,7 +260,7 @@ def test_meanpool_agg_apply_hidden_bias():
     out = agg([inp1, inp2])
 
     # Check sizes
-    assert agg.weight_dims == [1, 1]
+    assert agg.weight_dims == [2, 2]
 
     # Numerical test values
     x1 = np.array([[[1, 1]]])
@@ -274,7 +274,7 @@ def test_meanpool_agg_apply_hidden_bias():
 
     model = keras.Model(inputs=[inp1, inp2], outputs=out)
     actual = model.predict([x1, x2])
-    expected = np.array([[[2, 12]]])
+    expected = np.array([[[14, 14]]])
 
     assert expected == pytest.approx(actual)
 
@@ -293,7 +293,7 @@ def test_meanpool_agg_apply_no_bias():
     out = agg([inp1, inp2])
 
     # Check sizes
-    assert agg.weight_dims == [1, 1]
+    assert agg.weight_dims == [2, 2]
 
     # Numerical test values
     x1 = np.array([[[1, 1]]])
@@ -307,7 +307,7 @@ def test_meanpool_agg_apply_no_bias():
 
     model = keras.Model(inputs=[inp1, inp2], outputs=out)
     actual = model.predict([x1, x2])
-    expected = np.array([[[2, 10]]])
+    expected = np.array([[[12, 12]]])
 
     assert expected == pytest.approx(actual)
 
@@ -527,7 +527,7 @@ def test_graphsage_apply_1():
         np.array([[[3, 3], [3, 3], [3, 3], [3, 3]]]),
         np.array([[[4, 4], [4, 4], [4, 4], [4, 4], [5, 5], [5, 5], [5, 5], [5, 5]]]),
     ]
-    expected = np.array([[16, 25]])
+    expected = np.array([[164, 164]])
 
     actual = model.predict(x)
     assert expected == pytest.approx(actual)
@@ -568,7 +568,7 @@ def test_graphsage_serialize():
     # Test loaded model
     x1 = np.array([[[1, 1]]])
     x2 = np.array([[[2, 2], [3, 3]]])
-    expected = np.array([[2, 2, 5, 5]])
+    expected = np.array([[7, 7, 7, 7]])
 
     actual = model2.predict([x1, x2])
     assert expected == pytest.approx(actual)
