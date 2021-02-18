@@ -41,3 +41,4 @@ from .graph_classification import *
 from .deep_graph_infomax import *
 from .sort_pooling import *
 from .gcn_lstm import *
+from .ugraphemb_attention_pooling import UGraphEmbAttentionPooling
