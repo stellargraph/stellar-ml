@@ -334,11 +334,15 @@ def tree_graph() -> StellarGraph:
     return StellarDiGraph(nodes, edges)
 
 
-@pytest.fixture
-def barbell():
-    graph = nx.barbell_graph(m1=10, m2=11)
+import itertools as it
+values = list(it.product(range(2, 10 + 1), range(1, 11 + 1)))
+#values = [(2, 3)]
+@pytest.fixture(params=values, ids=[f"{m1},{m2},{2*m1+m2}" for m1, m2 in values])
+def barbell(request):
+    m1, m2 = request.param
+    graph = nx.barbell_graph(m1=m1, m2=m2)
     for i, (src, tgt) in enumerate(graph.edges):
-        graph[src][tgt]["weight"] = (i + 1) / 5
+        graph[src][tgt]["weight"] = i + 2**(i % 6)
     return StellarGraph.from_networkx(graph)
 
 

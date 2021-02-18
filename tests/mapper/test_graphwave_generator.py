@@ -20,7 +20,7 @@ from stellargraph.mapper.graphwave_generator import (
     _empirical_characteristic_function,
 )
 
-from ..test_utils.graphs import barbell
+from ..test_utils.graphs import barbell, example_graph
 import numpy as np
 import pytest
 import scipy.sparse as sps
@@ -230,17 +230,20 @@ def test_flow_node_ids(barbell):
     assert all(a == b for a, b in zip(expected_targets, actual_targets))
 
 
-def test_chebyshev(barbell):
+@pytest.mark.parametrize("weighted", [False, True])
+def test_chebyshev(barbell, weighted):
     """
     This test checks that the Chebyshev approximation accurately calculates the wavelets. It calculates
     the wavelets exactly using eigenvalues and compares this to the Chebyshev approximation.
     """
     scales = (1, 5, 10)
     sample_points = np.linspace(0, 100, 50).astype(np.float32)
-    generator = GraphWaveGenerator(barbell, scales=scales, degree=50,)
+    generator = GraphWaveGenerator(barbell, scales=scales, degree=1000, weighted=weighted)
 
     # calculate wavelets exactly using eigenvalues
-    adj = np.asarray(barbell.to_adjacency_matrix().todense()).astype(np.float32)
+    adj = np.asarray(barbell.to_adjacency_matrix(weighted=weighted).todense()).astype(
+        np.float32
+    )
 
     degree_mat = sps.diags(np.asarray(adj.sum(1)).ravel())
     laplacian = degree_mat - adj

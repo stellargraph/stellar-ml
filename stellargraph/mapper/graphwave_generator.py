@@ -44,12 +44,14 @@ class GraphWaveGenerator(Generator):
         degree: the degree of the Chebyshev polynomial to use. Higher degrees yield more accurate results but at a
             higher computational cost. According to [1], the default value of 20 is accurate enough for most
             applications.
+        weighted (bool, optional): if True, use the edge weights from ``G``; if False, treat the
+            graph as unweighted.
 
     [1] D. I. Shuman, P. Vandergheynst, and P. Frossard, “Chebyshev Polynomial Approximation for Distributed Signal
     Processing,” https://arxiv.org/abs/1105.1891
     """
 
-    def __init__(self, G, scales=(5, 10), degree=20):
+    def __init__(self, G, scales=(5, 10), degree=20, weighted=False):
 
         if not isinstance(G, StellarGraph):
             raise TypeError("G must be a StellarGraph object.")
@@ -62,7 +64,7 @@ class GraphWaveGenerator(Generator):
         require_integer_in_range(degree, "degree", min_val=1)
 
         # Create sparse adjacency matrix:
-        adj = G.to_adjacency_matrix().tocoo()
+        adj = G.to_adjacency_matrix(weighted=weighted).tocoo()
 
         # Function to map node IDs to indices for quicker node index lookups
         self._node_lookup = G.node_ids_to_ilocs

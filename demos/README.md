@@ -146,7 +146,7 @@ These demos are displayed with detailed descriptions in the documentation: https
     <td>GraphWave</td>
     <td></td>
     <td></td>
-    <td></td>
+    <td>yes</td>
     <td></td>
     <td></td>
     <td><span title='via embedding vectors'>via unsup.</span></td>

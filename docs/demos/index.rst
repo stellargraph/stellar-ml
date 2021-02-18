@@ -152,7 +152,7 @@ Find a demo for an algorithm
      - GraphWave
      -
      -
-     -
+     - yes
      -
      -
      - via embedding vectors
