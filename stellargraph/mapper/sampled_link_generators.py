@@ -410,8 +410,11 @@ class HinSAGELinkGenerator(BatchedLinkGenerator):
         )
 
         # The sampler used to generate random samples of neighbours
-        self.sampler = SampledHeterogeneousBreadthFirstWalk(
-            G, graph_schema=self.schema, seed=seed
+        self._samplers = SeededPerBatch(
+            lambda s: SampledHeterogeneousBreadthFirstWalk(
+                G, graph_schema=self.schema, seed=s
+            ),
+            seed=seed,
         )
 
     def _get_features(self, node_samples, head_size, use_ilocs=False):
@@ -461,7 +464,7 @@ class HinSAGELinkGenerator(BatchedLinkGenerator):
 
             # Get sampled nodes for the subgraphs starting from the (src, dst) head nodes
             # nodes_samples is list of two lists: [[samples for src], [samples for dst]]
-            node_samples = self.sampler.run(
+            node_samples = self._samplers[batch_num].run(
                 nodes=head_nodes, n=1, n_size=self.num_samples
             )
 

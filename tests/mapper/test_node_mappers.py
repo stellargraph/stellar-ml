@@ -106,6 +106,44 @@ def example_hin_3(feature_size_by_type=None):
     return StellarGraph(nodes, edges), nodes_type_1, nodes_type_2
 
 
+def assert_sequence_shuffle(seq, shuffle, max_iter=5):
+    """
+    Assert whether the sequence object shuffles as expected when calling ``on_epoch_end``
+
+    Args:
+        seq (tensorflow.keras.Sequence): Sequence object
+        shuffle (bool): True if shuffle is turned on
+        max_iter(int): Number of times to check shuffling behaviour.
+    """
+
+    def flatten_features(seq):
+        # check (features == labels) and return flattened features
+        batches = [
+            (np.ravel(seq[i][0][0]), np.array(seq[i][1])) for i in range(len(seq))
+        ]
+        features, labels = zip(*batches)
+        features, labels = np.concatenate(features), np.concatenate(labels)
+        assert np.array_equal(features, labels)
+        return features
+
+    def consecutive_epochs(seq):
+        features = flatten_features(seq)
+        seq.on_epoch_end()
+        features_next = flatten_features(seq)
+        return features, features_next
+
+    comparison_results = set()
+
+    for i in range(max_iter):
+        f1, f2 = consecutive_epochs(seq)
+        comparison_results.add(np.array_equal(f1, f2))
+
+    if not shuffle:
+        assert comparison_results == {True}
+    else:
+        assert False in comparison_results
+
+
 def test_nodemapper_constructor_nx():
     """
     GraphSAGENodeGenerator requires a StellarGraph object
@@ -193,37 +231,11 @@ def test_nodemapper_shuffle(shuffle):
     G = example_graph_2(feature_size=n_feat)
     nodes = list(G.nodes())
 
-    def flatten_features(seq):
-        # check (features == labels) and return flattened features
-        batches = [
-            (np.ravel(seq[i][0][0]), np.array(seq[i][1])) for i in range(len(seq))
-        ]
-        features, labels = zip(*batches)
-        features, labels = np.concatenate(features), np.concatenate(labels)
-        assert all(features == labels)
-        return features
-
-    def consecutive_epochs(seq):
-        features = flatten_features(seq)
-        seq.on_epoch_end()
-        features_next = flatten_features(seq)
-        return features, features_next
-
     seq = GraphSAGENodeGenerator(G, batch_size=n_batch, num_samples=[0]).flow(
         nodes, nodes, shuffle=shuffle
     )
 
-    max_iter = 5
-    comparison_results = set()
-
-    for i in range(max_iter):
-        f1, f2 = consecutive_epochs(seq)
-        comparison_results.add(all(f1 == f2))
-
-    if not shuffle:
-        assert comparison_results == {True}
-    else:
-        assert False in comparison_results
+    assert_sequence_shuffle(seq, shuffle)
 
 
 def test_nodemapper_with_labels():
@@ -466,43 +478,18 @@ def test_hinnodemapper_level_2():
         assert nt in batch_node_types
 
 
-def test_hinnodemapper_shuffle():
-    random.seed(10)
-
+@pytest.mark.parametrize("shuffle", [True, False])
+def test_hinnodemapper_shuffle(shuffle):
     batch_size = 2
-    feature_sizes = {"t1": 1, "t2": 4}
-    G, nodes_type_1, nodes_type_2 = example_hin_2(feature_sizes)
+    feature_size_by_type = {"t1": 1, "t2": 4}
 
-    mapper = HinSAGENodeGenerator(
+    G, nodes_t1, nodes_t2 = example_hin_2(feature_size_by_type=feature_size_by_type)
+
+    seq = HinSAGENodeGenerator(
         G, batch_size=batch_size, num_samples=[0], head_node_type="t1"
-    ).flow(nodes_type_1, nodes_type_1, shuffle=True)
+    ).flow(nodes_t1, nodes_t1, shuffle=shuffle)
 
-    expected_node_batches = [[3, 2], [1, 0]]
-    assert len(mapper) == 2
-    for ii in range(len(mapper)):
-        nf, nl = mapper[ii]
-        assert all(np.ravel(nf[0]) == expected_node_batches[ii])
-        assert all(np.array(nl) == expected_node_batches[ii])
-
-    # This should re-shuffle the IDs
-    mapper.on_epoch_end()
-    expected_node_batches = [[2, 1], [3, 0]]
-    assert len(mapper) == 2
-    for ii in range(len(mapper)):
-        nf, nl = mapper[ii]
-        assert all(np.ravel(nf[0]) == expected_node_batches[ii])
-        assert all(np.array(nl) == expected_node_batches[ii])
-
-    # With no shuffle
-    mapper = HinSAGENodeGenerator(
-        G, batch_size=batch_size, num_samples=[0], head_node_type="t1"
-    ).flow(nodes_type_1, nodes_type_1, shuffle=False)
-    expected_node_batches = [[0, 1], [2, 3]]
-    assert len(mapper) == 2
-    for ii in range(len(mapper)):
-        nf, nl = mapper[ii]
-        assert all(np.ravel(nf[0]) == expected_node_batches[ii])
-        assert all(np.array(nl) == expected_node_batches[ii])
+    assert_sequence_shuffle(seq, shuffle)
 
 
 def test_hinnodemapper_with_labels():

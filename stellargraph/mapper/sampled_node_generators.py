@@ -510,8 +510,11 @@ class HinSAGENodeGenerator(BatchedNodeGenerator):
         )
 
         # Create sampler for HinSAGE
-        self.sampler = SampledHeterogeneousBreadthFirstWalk(
-            G, graph_schema=self.schema, seed=seed
+        self._samplers = SeededPerBatch(
+            lambda s: SampledHeterogeneousBreadthFirstWalk(
+                G, graph_schema=self.schema, seed=s
+            ),
+            seed=seed,
         )
 
     def sample_features(self, head_nodes, batch_num):
@@ -532,7 +535,9 @@ class HinSAGENodeGenerator(BatchedNodeGenerator):
             for that layer.
         """
         # Get sampled nodes
-        node_samples = self.sampler.run(nodes=head_nodes, n=1, n_size=self.num_samples)
+        node_samples = self._samplers[batch_num].run(
+            nodes=head_nodes, n=1, n_size=self.num_samples
+        )
 
         # Reshape node samples to the required format for the HinSAGE model
         # This requires grouping the sampled nodes by edge type and in order
