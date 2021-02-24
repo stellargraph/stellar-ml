@@ -69,7 +69,7 @@ def test_poincare_ball_distance_self(seeded):
 
         d = poincare_ball_distance(c, vs, vs)
         assert d.shape == vs.shape[:-1]
-        np.testing.assert_allclose(d, 0, atol=1e-5)
+        np.testing.assert_allclose(d, 0, rtol=1e-6, atol=1e-5)
 
 
 def test_poincare_ball_distance_exp(seeded):
