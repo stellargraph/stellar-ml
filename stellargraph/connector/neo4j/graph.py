@@ -180,7 +180,7 @@ class Neo4jStellarGraph:
             if isinstance(nodes, np.ndarray):
                 valid = nodes != None
                 # we need to create a list with python types to run the neo4j query with
-                nodes = [node.item() if node is not None else node for node in nodes]
+                nodes = nodes.tolist()
             elif isinstance(nodes, list):
                 valid = np.array(nodes) != None
             else:

@@ -50,6 +50,8 @@ from .misc import deprecated_model_function
 from ..connector.neo4j.mapper import (
     Neo4jGraphSAGENodeGenerator,
     Neo4jDirectedGraphSAGENodeGenerator,
+    Neo4jGraphSAGELinkGenerator,
+    Neo4jDirectedGraphSAGELinkGenerator,
 )
 
 
@@ -910,6 +912,7 @@ class GraphSAGE:
                 GraphSAGENodeGenerator,
                 GraphSAGELinkGenerator,
                 Neo4jGraphSAGENodeGenerator,
+                Neo4jGraphSAGELinkGenerator,
             ),
         ):
             errmsg = "Generator should be an instance of GraphSAGENodeGenerator or GraphSAGELinkGenerator"

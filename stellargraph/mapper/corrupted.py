@@ -18,6 +18,7 @@ import numpy as np
 from tensorflow.keras.utils import Sequence
 
 from . import Generator
+from ..connector.neo4j.mapper import Neo4jBatchedNodeGenerator
 from ..core.validation import comma_sep
 
 
@@ -84,7 +85,7 @@ class CorruptedGenerator(Generator):
     """
 
     def __init__(self, base_generator, *, corrupt_index_groups=None):
-        if not isinstance(base_generator, Generator):
+        if not isinstance(base_generator, (Generator, Neo4jBatchedNodeGenerator)):
             raise TypeError(
                 f"base_generator: expected a Generator subclass, found {type(base_generator).__name__}"
             )
