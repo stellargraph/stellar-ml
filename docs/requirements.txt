@@ -10,7 +10,7 @@ sphinxcontrib-spelling==5.1.2
 
 # dependencies used by RtD, fixed here so that our CI and RtD use the same (newer) versions.
 # https://github.com/readthedocs/readthedocs.org/blob/35b5ca286dff9d3fbcfdf1351e570375cd0c2bd3/readthedocs/doc_builder/python_environments.py#L335-L365
-Pygments==2.6.1
+Pygments==2.7.4
 setuptools==46.1.3
 docutils==0.16
 mock==4.0.2
