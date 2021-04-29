@@ -187,6 +187,7 @@ et
 exponentiates
 expressivity
 generalization
+gensim
 hasn
 homophily
 hyperparameter

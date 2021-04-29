@@ -30,7 +30,6 @@ REQUIRES = [
     "networkx>=2.2",
     "scikit_learn>=0.20",
     "matplotlib>=2.2",
-    "gensim>=3.4.0",
     "pandas>=0.24",
 ]
 
@@ -45,7 +44,14 @@ REQUIRES = [
 #
 # Other demos do not have specific requirements
 EXTRAS_REQUIRES = {
-    "demos": ["numba", "jupyter", "seaborn", "rdflib", "mplleaflet==0.0.5"],
+    "demos": [
+        "numba",
+        "jupyter",
+        "seaborn",
+        "rdflib",
+        "mplleaflet==0.0.5",
+        "gensim>=4.0.0",
+    ],
     "igraph": ["python-igraph"],
     "neo4j": ["py2neo"],
     "test": [
